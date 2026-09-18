@@ -915,27 +915,35 @@
                 wait(lettersDone + 5000, startCodePhase);
             }
 
-            /* ---------------- FASE 0: gerbang klik ----------------
-               Browser melarang audio sebelum ada interaksi pengguna. Maka:
-               - Coba buat AudioContext lebih dulu. Jika browser mengizinkan (state 'running'),
-                 intro langsung berjalan TANPA gerbang.
-               - Jika audio ditahan (state 'suspended'), tampilkan gerbang supaya sound effect tetap terdengar.
+            /* ---------------- FASE 0: gerbang klik (HANYA kunjungan pertama) ----------------
+               Catatan: browser melarang audio sebelum pengguna berinteraksi. Pada kunjungan
+               berikutnya gerbang tidak ditampilkan; intro langsung jalan dan suara akan aktif
+               otomatis begitu pengguna klik/sentuh/tekan tombol apa pun (jika browser menahannya).
             */
+            const GATE_KEY = 'himasi_gate_seen_v1';
+            let gateSeen = false;
+            try { gateSeen = localStorage.getItem(GATE_KEY) === '1'; } catch (e) {}
+
             let started = false;
             function begin() {
                 if (started) return;
                 started = true;
+                try { localStorage.setItem(GATE_KEY, '1'); } catch (e) {}
                 SFX.init(); SFX.resume();
                 gateEl.classList.add('out');
                 wait(700, startTextPhase);
             }
 
-            SFX.init();
-            const audioAllowed = SFX.state() === 'running';
-
-            if (audioAllowed) {
+            if (gateSeen) {
                 gateEl.remove();
                 started = true;
+                SFX.init();
+                // Buka audio pada interaksi pertama apa pun (jika browser masih menahannya)
+                const unlock = () => {
+                    SFX.resume();
+                    ['pointerdown', 'touchstart', 'keydown'].forEach(ev => document.removeEventListener(ev, unlock));
+                };
+                ['pointerdown', 'touchstart', 'keydown'].forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
                 wait(300, startTextPhase);
             } else {
                 gateEl.addEventListener('click', begin);
