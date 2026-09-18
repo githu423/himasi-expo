@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portofolio Kegiatan HIMASI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow: hidden;
+            cursor: default;
+        }
+
+        video::-webkit-media-controls { display: none !important; }
+
+        #background-video {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            z-index: 1;
+            object-fit: cover;
+            transition: opacity 1s ease-in-out;
+            opacity: 0;
+        }
+
+        .video-background-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.35);
+            z-index: 2;
+        }
+        
+        #webgl-canvas {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: 3;
+        }
+
+        #cursor-light {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0) 60%);
+            pointer-events: none;
+            z-index: 3;
+            transition: transform 0.1s linear;
+            transform: translate(-50%, -50%);
+        }
+
+        .content-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding-bottom: 25vh;
+            align-items: center;
+            text-align: center;
+            padding-left: 2rem;
+            padding-right: 2rem;
+            z-index: 4;
+            transition: opacity 1s ease-in-out;
+        }
+        
+        .content-overlay.content-hidden #text-content,
+        .content-overlay.content-hidden #playlist {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #text-content, #playlist {
+            transition: opacity 0.5s ease-in-out;
+        }
+
+
+        .text-content .char, .text-content p {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+
+        .text-content.visible .char {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .text-content.visible p {
+            opacity: 1;
+            transform: translateY(0);
+            transition-delay: 0.8s;
+        }
+
+        .portfolio-nav button {
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .portfolio-nav button.active::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 24px;
+            height: 3px;
+            background-color: #3b82f6;
+            border-radius: 99px;
+        }
+        
+        .progress-bar-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+        }
+
+        .parallax-layer {
+            transition: transform 0.2s linear;
+        }
+
+        #secret-button {
+            position: fixed;
+            bottom: 0px;
+            left: 10%;
+            width: 5px;
+            height: 5px;
+            background-color: rgba(59, 130, 246, 0.7);
+            z-index: 50;
+            transition: all 0.3s ease;
+            opacity: 0.5;
+        }
+        #secret-button:hover {
+            transform: scale(4);
+            background-color: rgba(255, 255, 255, 1);
+            box-shadow: 0 0 15px #fff;
+            opacity: 1;
+        }
+        
+        #volume-toggle {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        #volume-toggle:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+            transform: scale(1.1);
+        }
+
+        #end-screen {
+            position: absolute;
+            inset: 0;
+            background-color: rgba(17, 24, 39, 0.1);
+            backdrop-filter: blur(1px);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+
+        #end-screen.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+        }
+
+        #qr-code-img {
+            border: 4px solid white;
+            border-radius: 12px;
+            background-color: white;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+
+        /* ===================== INTRO (hanya kunjungan pertama) ===================== */
+        :root { --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1); --ease-inout: cubic-bezier(0.65, 0, 0.35, 1); }
+
+        #intro-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: #030712;
+            overflow: hidden;
+            perspective: 1000px;
+            perspective-origin: 50% 45%;
+            transition: opacity 1.4s var(--ease-inout);
+        }
+        #intro-overlay.intro-done { opacity: 0; pointer-events: none; }
+        #intro-text, #intro-code-wrap, #intro-flash, #intro-scanlines, #intro-overlay::before { pointer-events: none; }
+        #intro-gate { z-index: 5; }
+        #intro-skip { z-index: 6; }
+        #intro-overlay::before {
+            content: '';
+            position: absolute;
+            inset: -50%;
+            background: radial-gradient(circle at 50% 50%, rgba(59,130,246,0.18) 0%, rgba(3,7,18,0) 55%);
+            pointer-events: none;
+            animation: intro-glow 6s ease-in-out infinite alternate;
+        }
+        @keyframes intro-glow { from { transform: scale(0.95); opacity: 0.8; } to { transform: scale(1.1); opacity: 1; } }
+
+        /* Fase 0: gerbang klik (dibutuhkan browser agar suara boleh diputar) */
+        #intro-gate {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            cursor: pointer;
+            transition: opacity 0.9s var(--ease-inout), transform 0.9s var(--ease-inout), filter 0.9s var(--ease-inout);
+        }
+        #intro-gate { opacity: 0; animation: gate-appear 0.8s var(--ease-inout) 0.2s forwards; }
+        @keyframes gate-appear { to { opacity: 1; } }
+        #intro-gate.out { animation: none; opacity: 0; transform: scale(1.06); filter: blur(6px); pointer-events: none; }
+        #intro-gate .gate-ring {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            border: 1px solid rgba(147,197,253,0.5);
+            position: relative;
+            animation: gate-pulse 2.2s var(--ease-inout) infinite;
+        }
+        #intro-gate .gate-ring::after {
+            content: '';
+            position: absolute; inset: 22px;
+            border-radius: 50%;
+            background: #3b82f6;
+            box-shadow: 0 0 20px rgba(59,130,246,0.9);
+        }
+        @keyframes gate-pulse { 0%,100% { transform: scale(1); opacity: .7; } 50% { transform: scale(1.12); opacity: 1; } }
+        #intro-gate .gate-label {
+            font-size: 0.75rem;
+            letter-spacing: 0.35em;
+            text-transform: uppercase;
+            color: rgba(191,219,254,0.75);
+            animation: gate-fade 2.2s ease-in-out infinite;
+        }
+        @keyframes gate-fade { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+
+        /* Fase 1: Teks */
+        #intro-text {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 0 1.5rem;
+            opacity: 0;
+            transition: opacity 1.2s var(--ease-inout), transform 1.2s var(--ease-inout), filter 1.2s var(--ease-inout);
+        }
+        #intro-text.in { opacity: 1; }
+        #intro-text.intro-text-out {
+            opacity: 0;
+            transform: scale(1.12) translateY(-10px);
+            filter: blur(10px);
+        }
+        #intro-title {
+            position: relative;
+            font-weight: 900;
+            font-size: clamp(3rem, 12vw, 8rem);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            line-height: 1;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(59,130,246,0.55);
+        }
+        #intro-title .ichar {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(40px) rotateX(-90deg);
+            filter: blur(6px);
+            animation: intro-char-in 1s var(--ease-smooth) forwards;
+        }
+        @keyframes intro-char-in {
+            to { opacity: 1; transform: translateY(0) rotateX(0); filter: blur(0); }
+        }
+        /* Glitch: dua lapisan salinan teks yang dipotong-potong */
+        #intro-title::before, #intro-title::after {
+            content: attr(data-text);
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            pointer-events: none;
+            text-shadow: none;
+        }
+        #intro-title.glitch::before {
+            color: #22d3ee;
+            opacity: .85;
+            animation: glitch-a 0.65s steps(2, end) both;
+            mix-blend-mode: screen;
+        }
+        #intro-title.glitch::after {
+            color: #f472b6;
+            opacity: .85;
+            animation: glitch-b 0.65s steps(2, end) both;
+            mix-blend-mode: screen;
+        }
+        #intro-title.glitch { animation: glitch-shake 0.65s steps(2, end) both; }
+        @keyframes glitch-shake {
+            0%   { transform: translate(0); filter: none; }
+            15%  { transform: translate(-3px, 1px) skewX(-2deg); }
+            30%  { transform: translate(3px, -1px); filter: brightness(1.6) contrast(1.2); }
+            45%  { transform: translate(-2px, 2px) skewX(3deg); }
+            60%  { transform: translate(2px, 0); filter: none; }
+            75%  { transform: translate(-1px, -1px) skewX(-1deg); }
+            100% { transform: translate(0); }
+        }
+        @keyframes glitch-a {
+            0%   { clip-path: inset(10% 0 80% 0); transform: translate(-8px, -2px); }
+            20%  { clip-path: inset(60% 0 15% 0); transform: translate(8px, 2px); }
+            40%  { clip-path: inset(35% 0 45% 0); transform: translate(-6px, 1px); }
+            60%  { clip-path: inset(80% 0 5% 0);  transform: translate(6px, -1px); }
+            80%  { clip-path: inset(20% 0 65% 0); transform: translate(-4px, 0); }
+            100% { clip-path: inset(0 0 100% 0);  transform: translate(0); opacity: 0; }
+        }
+        @keyframes glitch-b {
+            0%   { clip-path: inset(70% 0 10% 0); transform: translate(8px, 2px); }
+            20%  { clip-path: inset(15% 0 70% 0); transform: translate(-8px, -2px); }
+            40%  { clip-path: inset(50% 0 30% 0); transform: translate(6px, -1px); }
+            60%  { clip-path: inset(5% 0 85% 0);  transform: translate(-6px, 1px); }
+            80%  { clip-path: inset(40% 0 40% 0); transform: translate(4px, 0); }
+            100% { clip-path: inset(100% 0 0 0);  transform: translate(0); opacity: 0; }
+        }
+        #intro-subtitle {
+            margin-top: 1.4rem;
+            max-width: 900px;
+            font-size: clamp(0.75rem, 2.2vw, 1.25rem);
+            font-weight: 600;
+            letter-spacing: 0.5em;
+            line-height: 1.7;
+            text-transform: uppercase;
+            color: #93c5fd;
+            opacity: 0;
+            transform: translateY(18px);
+            filter: blur(6px);
+            transition: opacity 1.4s var(--ease-smooth), transform 1.4s var(--ease-smooth), letter-spacing 1.6s var(--ease-smooth), filter 1.4s var(--ease-smooth);
+        }
+        #intro-subtitle.show { opacity: 1; transform: translateY(0); letter-spacing: 0.28em; filter: blur(0); }
+        #intro-subtitle.glitch { animation: sub-glitch 0.4s steps(2,end) both; }
+        @keyframes sub-glitch {
+            0% { transform: translateX(0); opacity: 1; }
+            25% { transform: translateX(-4px); opacity: .4; text-shadow: 3px 0 #22d3ee, -3px 0 #f472b6; }
+            50% { transform: translateX(4px); opacity: 1; }
+            75% { transform: translateX(-2px); opacity: .6; text-shadow: -2px 0 #22d3ee, 2px 0 #f472b6; }
+            100% { transform: translateX(0); opacity: 1; text-shadow: none; }
+        }
+        #intro-line {
+            width: 0;
+            height: 2px;
+            margin-top: 1.6rem;
+            background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+            transition: width 1.4s var(--ease-smooth), opacity 1s ease;
+        }
+        #intro-line.show { width: min(60vw, 420px); }
+
+        /* Fase 2: Kode masuk ke dalam device */
+        #intro-code-wrap {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            opacity: 0;
+            transform-style: preserve-3d;
+            transform: translateZ(-120px);
+            transition: opacity 1.4s var(--ease-inout), transform 1.6s var(--ease-inout);
+        }
+        #intro-code-wrap.show { opacity: 1; transform: translateZ(0); }
+        #intro-code-wrap.dive { animation: intro-dive 3.4s cubic-bezier(0.6, 0, 0.9, 0.35) forwards; }
+        @keyframes intro-dive {
+            0%   { transform: translateZ(0) rotateX(0deg); opacity: 1; filter: blur(0); }
+            60%  { opacity: 1; filter: blur(0); }
+            100% { transform: translateZ(1200px) rotateX(20deg); opacity: 0; filter: blur(4px); }
+        }
+        #intro-code {
+            margin: 0;
+            width: min(92vw, 1000px);
+            font-family: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+            font-size: clamp(0.7rem, 1.5vw, 0.95rem);
+            line-height: 1.55;
+            color: #cbd5e1;
+            white-space: pre;
+            padding-top: 40vh;
+            will-change: transform;
+            transition: transform 0.45s var(--ease-smooth);
+        }
+        #intro-code .line { display: block; opacity: 0; transform: translateY(6px); animation: line-in 0.5s var(--ease-smooth) forwards; }
+        @keyframes line-in { to { opacity: 1; transform: translateY(0); } }
+        #intro-code .ln { color: #475569; display: inline-block; width: 3.2em; text-align: right; margin-right: 1.4em; user-select: none; }
+        #intro-code .kw { color: #c084fc; }
+        #intro-code .fn { color: #60a5fa; }
+        #intro-code .st { color: #86efac; }
+        #intro-code .cm { color: #64748b; font-style: italic; }
+        #intro-code .nm { color: #fbbf24; }
+        #intro-code .cursor {
+            display: inline-block;
+            width: 0.6em;
+            height: 1.1em;
+            background: #3b82f6;
+            vertical-align: text-bottom;
+            animation: intro-blink 0.9s ease-in-out infinite;
+        }
+        @keyframes intro-blink { 50% { opacity: 0.1; } }
+
+        #intro-scanlines {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 3px);
+            mix-blend-mode: overlay;
+        }
+        #intro-flash {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, #ffffff 0%, #bfdbfe 40%, #3b82f6 100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        #intro-flash.go { animation: intro-flash 1.3s var(--ease-inout) forwards; }
+        @keyframes intro-flash { 0% { opacity: 0; } 25% { opacity: 0.85; } 100% { opacity: 0; } }
+
+        #intro-skip {
+            position: absolute;
+            right: 1.25rem;
+            bottom: 1.25rem;
+            font-size: 0.75rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.45);
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 999px;
+            padding: 0.45rem 1rem;
+            cursor: pointer;
+            opacity: 0;
+            transition: all 0.6s var(--ease-inout);
+        }
+        #intro-skip.show { opacity: 1; }
+        #intro-skip:hover { color: #fff; border-color: #3b82f6; }
+
+        @media (prefers-reduced-motion: reduce) {
+            #intro-title.glitch, #intro-title.glitch::before, #intro-title.glitch::after, #intro-subtitle.glitch { animation: none !important; }
+        }
+
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <!-- ===================== INTRO OVERLAY (hanya kunjungan pertama) ===================== -->
+    <div id="intro-overlay" hidden>
+        <div id="intro-scanlines"></div>
+        <div id="intro-gate">
+            <div class="gate-ring"></div>
+            <div class="gate-label">Ketuk untuk memulai</div>
+        </div>
+        <div id="intro-text">
+            <div id="intro-title" data-text="HIMASI" aria-label="HIMASI"></div>
+            <div id="intro-line"></div>
+            <div id="intro-subtitle">HIMPUNAN MAHASISWA SISTEM INFORMASI UBSI TASIKMALAYA</div>
+        </div>
+        <div id="intro-code-wrap">
+            <pre id="intro-code"></pre>
+        </div>
+        <div id="intro-flash"></div>
+        <button id="intro-skip" type="button">Lewati</button>
+    </div>
+
+    <video loop playsinline preload="auto" id="background-video">
+    </video>
+    
+    <div class="video-background-overlay"></div>
+    <canvas id="webgl-canvas"></canvas>
+    <div id="cursor-light"></div>
+    
+    <button id="volume-toggle" title="Nyalakan/Matikan Suara"></button>
+    
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLScJ1rlhCwbzwnGL0iipvdHFcJDw3M6-a69B0bo5x8fyIHLBPA/viewform?usp=header" target="_blank" id="secret-button" title="Tombol Rahasia Ditemukan! Klik untuk hadiah!">&nbsp;</a>
+
+    <div id="video-container" class="content-overlay">
+        <div id="text-content" class="text-content max-w-3xl">
+            <div class="parallax-layer" data-parallax-strength="20">
+                <h1 id="video-title" class="text-3xl md:text-5xl font-black uppercase tracking-wider mb-4"></h1>
+            </div>
+            <div class="parallax-layer" data-parallax-strength="10">
+                <p id="video-description" class="mt-4 text-base md:text-lg text-gray-300"></p>
+            </div>
+        </div>
+
+        
+        <div id="loader" class="absolute inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+            <svg class="animate-spin h-10 w-10 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </div>
+        
+        <div class="progress-bar-container">
+            <div id="progress-bar" class="bg-blue-500 h-full" style="width: 0%;"></div>
+        </div>
+
+        <div id="end-screen">
+            <div class="text-center">
+                <h2 class="text-2xl md:text-3xl font-bold mb-2">Stts!</h2>
+                <p class="text-xl text-gray-300 mb-6 max-w-sm">Temukan tombol rahasia di halaman ini. Pemenang pertama yang menemukan akan mendapatkan hadiah spesial dari kami!</p>
+                <img id="qr-code-img" src="./qrcode.png" alt="QR Code Kegiatan" width="200" height="200" class="mx-auto">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===================== INTRO ANIMATION (hanya kunjungan pertama) =====================
+        (function runIntro() {
+            const INTRO_KEY = 'himasi_intro_seen_v1';
+            const overlay = document.getElementById('intro-overlay');
+            if (!overlay) return;
+
+            // Intro (beserta tombol memulai) hanya tampil pada kunjungan PERTAMA.
+            // Refresh berikutnya langsung ke website tanpa intro.
+            // Ubah ke true jika ingin intro tampil setiap kali halaman dimuat.
+            const SHOW_EVERY_LOAD = false;
+
+            let seen = false;
+            if (!SHOW_EVERY_LOAD) {
+                try { seen = localStorage.getItem(INTRO_KEY) === '1'; } catch (e) { seen = false; }
+            }
+            if (seen) { overlay.remove(); return; }
+
+            // Tandai bahwa intro sedang berjalan; video utama menunggu sampai intro selesai
+            window.__himasiIntroActive = true;
+            overlay.hidden = false;
+
+            const gateEl = document.getElementById('intro-gate');
+            const titleEl = document.getElementById('intro-title');
+            const subtitleEl = document.getElementById('intro-subtitle');
+            const lineEl = document.getElementById('intro-line');
+            const textEl = document.getElementById('intro-text');
+            const codeWrap = document.getElementById('intro-code-wrap');
+            const codeEl = document.getElementById('intro-code');
+            const flashEl = document.getElementById('intro-flash');
+            const skipBtn = document.getElementById('intro-skip');
+
+            /* ---------------- SOUND ENGINE (Web Audio, tanpa file eksternal) ---------------- */
+            const SFX = (() => {
+                let ctx = null, master = null, dry = null, verb = null, verbGain = null, noiseBuf = null;
+
+                function makeImpulse(seconds, decay) {
+                    const rate = ctx.sampleRate, len = rate * seconds;
+                    const buf = ctx.createBuffer(2, len, rate);
+                    for (let c = 0; c < 2; c++) {
+                        const d = buf.getChannelData(c);
+                        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+                    }
+                    return buf;
+                }
+                function init() {
+                    if (ctx) return;
+                    const AC = window.AudioContext || window.webkitAudioContext;
+                    if (!AC) return;
+                    ctx = new AC();
+                    master = ctx.createGain(); master.gain.value = 0.8;
+                    const comp = ctx.createDynamicsCompressor();
+                    comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
+                    master.connect(comp).connect(ctx.destination);
+                    dry = ctx.createGain(); dry.connect(master);
+                    verb = ctx.createConvolver(); verb.buffer = makeImpulse(2.2, 3.5);
+                    verbGain = ctx.createGain(); verbGain.gain.value = 0.35;
+                    verb.connect(verbGain).connect(master);
+                    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+                    const d = noiseBuf.getChannelData(0);
+                    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+                }
+                const now = () => ctx.currentTime;
+                const rnd = (a, b) => a + Math.random() * (b - a);
+                function out(node, wet = 0) {
+                    node.connect(dry);
+                    if (wet > 0) { const g = ctx.createGain(); g.gain.value = wet; node.connect(g).connect(verb); }
+                }
+                function env(g, t, a, peak, d, curve = 'exp') {
+                    g.gain.cancelScheduledValues(t);
+                    g.gain.setValueAtTime(0.0001, t);
+                    if (curve === 'lin') { g.gain.linearRampToValueAtTime(peak, t + a); g.gain.linearRampToValueAtTime(0.0001, t + a + d); }
+                    else { g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
+                }
+                function tone(freq, { type = 'sine', a = 0.01, d = 0.3, vol = 0.2, slideTo = null, t = 0, wet = 0, lp = null, detune = 0 } = {}) {
+                    if (!ctx) return;
+                    const o = ctx.createOscillator(), g = ctx.createGain();
+                    const st = now() + t;
+                    o.type = type; o.detune.value = detune; o.frequency.setValueAtTime(freq, st);
+                    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, st + a + d);
+                    env(g, st, a, vol, d);
+                    let chain = o;
+                    if (lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; chain.connect(f); chain = f; }
+                    chain.connect(g); out(g, wet);
+                    o.start(st); o.stop(st + a + d + 0.05);
+                }
+                function noise({ a = 0.005, d = 0.1, vol = 0.15, type = 'bandpass', f = 1200, q = 1, fTo = null, fMid = null, t = 0, wet = 0 } = {}) {
+                    if (!ctx) return;
+                    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true; src.playbackRate.value = rnd(0.9, 1.1);
+                    const flt = ctx.createBiquadFilter(); flt.type = type; flt.Q.value = q;
+                    const st = now() + t, end = st + a + d;
+                    flt.frequency.setValueAtTime(f, st);
+                    if (fMid && fTo) { flt.frequency.exponentialRampToValueAtTime(fMid, st + a); flt.frequency.exponentialRampToValueAtTime(fTo, end); }
+                    else if (fTo) flt.frequency.exponentialRampToValueAtTime(fTo, end);
+                    const g = ctx.createGain(); env(g, st, a, vol, d);
+                    src.connect(flt).connect(g); out(g, wet);
+                    src.start(st); src.stop(end + 0.05);
+                }
+                // Bitcrusher sederhana untuk glitch (WaveShaper kuantisasi)
+                function crusherCurve(bits) {
+                    const n = 65536, c = new Float32Array(n), step = Math.pow(0.5, bits);
+                    for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; c[i] = Math.round(x / step) * step; }
+                    return c;
+                }
+
+                return {
+                    init,
+                    resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); },
+                    state() { return ctx ? ctx.state : 'unavailable'; },
+
+                    ambience() {
+                        if (!ctx) return;
+                        const o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+                        o.type = 'sawtooth'; o.frequency.value = 55; o2.type = 'sawtooth'; o2.frequency.value = 55.6;
+                        f.type = 'lowpass'; f.frequency.value = 220;
+                        g.gain.setValueAtTime(0.0001, now()); g.gain.exponentialRampToValueAtTime(0.05, now() + 2.5);
+                        o.connect(f); o2.connect(f); f.connect(g); out(g, 0.5);
+                        o.start(); o2.start();
+                        this._amb = { o, o2, g };
+                    },
+                    stopAmbience(fade = 1.5) {
+                        if (!ctx || !this._amb) return;
+                        const { o, o2, g } = this._amb;
+                        g.gain.cancelScheduledValues(now()); g.gain.setValueAtTime(g.gain.value, now());
+                        g.gain.exponentialRampToValueAtTime(0.0001, now() + fade);
+                        o.stop(now() + fade + 0.1); o2.stop(now() + fade + 0.1);
+                        this._amb = null;
+                    },
+                    letter(i) {
+                        tone(440 * Math.pow(2, i / 12), { type: 'sine', a: 0.01, d: 0.7, vol: 0.12, wet: 0.6 });
+                        tone(880 * Math.pow(2, i / 12), { type: 'triangle', a: 0.005, d: 0.3, vol: 0.05, wet: 0.4 });
+                        noise({ a: 0.002, d: 0.05, vol: 0.04, f: 4000, q: 2 });
+                    },
+                    shimmer() { noise({ a: 0.4, d: 1.0, vol: 0.05, type: 'highpass', f: 3000, fTo: 8000, wet: 0.6 }); },
+                    subtitle() {
+                        tone(220, { type: 'sine', a: 0.3, d: 1.4, vol: 0.08, wet: 0.7 });
+                        tone(330, { type: 'sine', a: 0.4, d: 1.4, vol: 0.05, wet: 0.7 });
+                    },
+
+                    /* GLITCH: stutter digital — nada patah-patah acak ter-bitcrush + sapuan turun + dengung listrik */
+                    glitch(intense = 1) {
+                        if (!ctx) return;
+                        const st = now(), total = 0.6;
+                        const crush = ctx.createWaveShaper(); crush.curve = crusherCurve(5);
+                        const bus = ctx.createGain(); bus.gain.value = 0.22 * intense;
+                        crush.connect(bus); out(bus, 0.15);
+
+                        // 1) Stutter: gate on/off cepat dengan pitch acak (sample & hold)
+                        const o = ctx.createOscillator(); o.type = 'square';
+                        const g = ctx.createGain(); g.gain.setValueAtTime(0, st);
+                        o.connect(g).connect(crush);
+                        let t = st;
+                        while (t < st + total) {
+                            const len = rnd(0.015, 0.06);
+                            o.frequency.setValueAtTime([110, 220, 330, 440, 660, 880, 1320][Math.floor(rnd(0, 7))] * rnd(0.97, 1.03), t);
+                            g.gain.setValueAtTime(rnd(0.4, 1), t);
+                            g.gain.setValueAtTime(0, t + len * rnd(0.4, 0.8));
+                            t += len;
+                        }
+                        o.start(st); o.stop(st + total + 0.05);
+
+                        // 2) Data-noise: burst noise sempit dengan frekuensi melompat
+                        for (let i = 0; i < 6; i++) {
+                            noise({ a: 0.002, d: rnd(0.02, 0.05), vol: 0.10 * intense, type: 'bandpass', f: rnd(800, 6000), q: 12, t: rnd(0, total - 0.05) });
+                        }
+                        // 3) Sapuan pitch turun (zzt-woo) di awal & tengah
+                        tone(1800, { type: 'sawtooth', a: 0.005, d: 0.12, vol: 0.06 * intense, slideTo: 90, lp: 3000 });
+                        tone(1200, { type: 'sawtooth', a: 0.005, d: 0.10, vol: 0.05 * intense, slideTo: 70, lp: 3000, t: total * 0.55 });
+                        // 4) Dengung listrik 50Hz singkat + thud rendah untuk "berat"
+                        tone(50, { type: 'sawtooth', a: 0.01, d: 0.3, vol: 0.10 * intense, lp: 400 });
+                        tone(90, { type: 'sine', a: 0.005, d: 0.25, vol: 0.14 * intense, slideTo: 35 });
+                    },
+
+                    /* WHOOSH: teks memudar → kode masuk. Noise beresonansi naik lalu turun, halus. */
+                    whooshOut() {
+                        noise({ a: 0.55, d: 0.9, vol: 0.16, type: 'bandpass', f: 250, fMid: 2400, fTo: 350, q: 2.5, wet: 0.5 });
+                        noise({ a: 0.5, d: 0.9, vol: 0.06, type: 'highpass', f: 1500, fTo: 6000, wet: 0.5 });
+                        tone(180, { type: 'sine', a: 0.4, d: 0.9, vol: 0.05, slideTo: 90, wet: 0.6 });
+                    },
+
+                    /* KETIKAN: keyboard mekanik — thock bodi + klik tipis, variasi acak */
+                    key() {
+                        const v = rnd(0.7, 1.15);
+                        // klik atas (switch)
+                        noise({ a: 0.001, d: 0.012, vol: 0.10 * v, type: 'bandpass', f: rnd(2600, 4200), q: 3 });
+                        // thock bodi (bottom-out)
+                        noise({ a: 0.001, d: 0.045, vol: 0.13 * v, type: 'lowpass', f: rnd(500, 800) });
+                        tone(rnd(150, 210), { type: 'sine', a: 0.001, d: 0.05, vol: 0.07 * v, slideTo: 80 });
+                    },
+                    // Bunyi "enter" saat baris kosong / akhir blok
+                    keyEnter() {
+                        noise({ a: 0.001, d: 0.02, vol: 0.10, type: 'bandpass', f: 2200, q: 2 });
+                        noise({ a: 0.001, d: 0.07, vol: 0.17, type: 'lowpass', f: 450 });
+                        tone(120, { type: 'sine', a: 0.001, d: 0.08, vol: 0.10, slideTo: 60 });
+                    },
+
+                    /* DIVE: riser masuk ke device — noise membuka, nada naik, denyut yang makin cepat */
+                    dive() {
+                        if (!ctx) return;
+                        const st = now(), len = 3.0;
+                        noise({ a: 2.2, d: 1.0, vol: 0.28, type: 'lowpass', f: 150, fTo: 12000, q: 1.2, wet: 0.4 });
+                        noise({ a: 2.4, d: 0.8, vol: 0.10, type: 'bandpass', f: 300, fTo: 5000, q: 4, wet: 0.5 });
+                        tone(55, { type: 'sawtooth', a: 2.3, d: 0.9, vol: 0.10, slideTo: 1100, lp: 2500, wet: 0.4 });
+                        tone(55, { type: 'sawtooth', a: 2.3, d: 0.9, vol: 0.08, slideTo: 1100, lp: 2500, detune: 12, wet: 0.4 });
+                        tone(110, { type: 'sine', a: 2.3, d: 0.9, vol: 0.07, slideTo: 2200, wet: 0.5 });
+                        // Denyut (pulse) yang mempercepat: seperti mendekati "gerbang"
+                        let t = 0, gap = 0.34;
+                        while (t < len - 0.3) {
+                            tone(70 + t * 25, { type: 'sine', a: 0.005, d: 0.16, vol: 0.12, slideTo: 40, t });
+                            noise({ a: 0.002, d: 0.03, vol: 0.05, type: 'highpass', f: 5000, t });
+                            t += gap; gap = Math.max(0.05, gap * 0.86);
+                        }
+                    },
+
+                    /* IMPACT: hantaman sinematik + ekor reverb + chime */
+                    impact() {
+                        tone(150, { type: 'sine', a: 0.004, d: 1.2, vol: 0.45, slideTo: 30, wet: 0.6 });
+                        tone(75, { type: 'triangle', a: 0.004, d: 0.6, vol: 0.20, slideTo: 25 });
+                        noise({ a: 0.003, d: 0.9, vol: 0.20, type: 'lowpass', f: 3000, fTo: 80, wet: 0.7 });
+                        noise({ a: 0.003, d: 0.25, vol: 0.10, type: 'highpass', f: 2000, wet: 0.8 });
+                        tone(1318, { type: 'sine', a: 0.02, d: 2.2, vol: 0.05, wet: 0.9, t: 0.05 });
+                        tone(1976, { type: 'sine', a: 0.02, d: 2.2, vol: 0.035, wet: 0.9, t: 0.08 });
+                        tone(2637, { type: 'sine', a: 0.02, d: 2.0, vol: 0.025, wet: 0.9, t: 0.11 });
+                    }
+                };
+            })();
+
+            /* ---------------- KODE ---------------- */
+            const codeLines = [
+                ['cm', '// ============================================='],
+                ['cm', '//  HIMASI UBSI TASIKMALAYA — Portofolio Kegiatan'],
+                ['cm', '//  Himpunan Mahasiswa Sistem Informasi'],
+                ['cm', '// ============================================='],
+                ['', ''],
+                ['raw', '<span class="kw">import</span> { Mahasiswa, Kegiatan } <span class="kw">from</span> <span class="st">"./himasi/core"</span>;'],
+                ['raw', '<span class="kw">import</span> { Kolaborasi, Inovasi } <span class="kw">from</span> <span class="st">"./himasi/nilai"</span>;'],
+                ['', ''],
+                ['raw', '<span class="kw">const</span> <span class="fn">HIMASI</span> = {'],
+                ['raw', '  nama: <span class="st">"Himpunan Mahasiswa Sistem Informasi"</span>,'],
+                ['raw', '  kampus: <span class="st">"Universitas Bina Sarana Informatika"</span>,'],
+                ['raw', '  kota: <span class="st">"Tasikmalaya"</span>,'],
+                ['raw', '  semangat: <span class="nm">100</span>,'],
+                ['raw', '};'],
+                ['', ''],
+                ['raw', '<span class="kw">const</span> kegiatan = ['],
+                ['raw', '  <span class="kw">new</span> <span class="fn">Kegiatan</span>(<span class="st">"Kelas Reguler"</span>, { fokus: <span class="st">"pemrograman"</span> }),'],
+                ['raw', '  <span class="kw">new</span> <span class="fn">Kegiatan</span>(<span class="st">"Bakti Sosial Ta\'jil"</span>, { fokus: <span class="st">"kepedulian"</span> }),'],
+                ['raw', '  <span class="kw">new</span> <span class="fn">Kegiatan</span>(<span class="st">"Kelas Coding"</span>, { fokus: <span class="st">"pengembangan aplikasi"</span> }),'],
+                ['raw', '  <span class="kw">new</span> <span class="fn">Kegiatan</span>(<span class="st">"Malam Keakraban"</span>, { fokus: <span class="st">"persaudaraan"</span> }),'],
+                ['raw', '];'],
+                ['', ''],
+                ['raw', '<span class="kw">async function</span> <span class="fn">bootstrap</span>() {'],
+                ['raw', '  <span class="kw">const</span> anggota = <span class="kw">await</span> Mahasiswa.<span class="fn">kumpulkan</span>({ prodi: <span class="st">"Sistem Informasi"</span> });'],
+                ['raw', '  anggota.<span class="fn">forEach</span>(m => m.<span class="fn">tanamkan</span>(Kolaborasi, Inovasi));'],
+                ['', ''],
+                ['raw', '  <span class="kw">for</span> (<span class="kw">const</span> k <span class="kw">of</span> kegiatan) {'],
+                ['raw', '    <span class="kw">await</span> k.<span class="fn">laksanakan</span>({ bersama: anggota });'],
+                ['raw', '    console.<span class="fn">log</span>(<span class="st">`✔ ${k.nama} selesai`</span>);'],
+                ['raw', '  }'],
+                ['', ''],
+                ['raw', '  <span class="kw">return</span> HIMASI.<span class="fn">tumbuh</span>({ bersama: anggota, tanpaHenti: <span class="kw">true</span> });'],
+                ['raw', '}'],
+                ['', ''],
+                ['raw', '<span class="fn">bootstrap</span>()'],
+                ['raw', '  .<span class="fn">then</span>(() => console.<span class="fn">log</span>(<span class="st">"HIMASI UBSI TASIKMALAYA — siap!"</span>))'],
+                ['raw', '  .<span class="fn">catch</span>(err => console.<span class="fn">error</span>(err));'],
+                ['', ''],
+                ['raw', '<span class="kw">export default</span> HIMASI;'],
+                ['cm', '// > memuat portofolio kegiatan ...'],
+                ['cm', '// > menghubungkan ke device ...'],
+                ['cm', '// > masuk.'],
+            ];
+
+            const timers = [];
+            let finished = false;
+            const wait = (ms, fn) => timers.push(setTimeout(fn, ms));
+
+            function finishIntro() {
+                if (finished) return;
+                finished = true;
+                timers.forEach(clearTimeout);
+                if (!SHOW_EVERY_LOAD) { try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {} }
+                SFX.stopAmbience(1.4);
+                overlay.classList.add('intro-done');
+                // Tunggu transisi fade-out overlay benar-benar selesai, baru halaman dianggap siap
+                setTimeout(() => {
+                    overlay.remove();
+                    window.__himasiIntroActive = false;
+                    // Beri tahu aplikasi utama: intro & transisi selesai, video boleh mulai
+                    window.dispatchEvent(new CustomEvent('himasi:intro-done'));
+                }, 1500);
+            }
+            skipBtn.addEventListener('click', (e) => { e.stopPropagation(); finishIntro(); });
+
+            /* ---------------- FASE 2: kode ---------------- */
+            function startCodePhase() {
+                SFX.whooshOut();
+                textEl.classList.add('intro-text-out');
+                wait(500, () => codeWrap.classList.add('show'));
+
+                let lineIndex = 0;
+                const cursor = document.createElement('span');
+                cursor.className = 'cursor';
+                codeEl.appendChild(cursor);
+
+                function typeNextLine() {
+                    if (lineIndex >= codeLines.length) {
+                        wait(500, () => {
+                            SFX.dive();
+                            codeWrap.classList.add('dive');
+                            wait(2500, () => { flashEl.classList.add('go'); SFX.impact(); });
+                            wait(2900, finishIntro);
+                        });
+                        return;
+                    }
+                    const [type, content] = codeLines[lineIndex];
+                    const line = document.createElement('span');
+                    line.className = 'line';
+                    const ln = document.createElement('span');
+                    ln.className = 'ln';
+                    ln.textContent = String(lineIndex + 1);
+                    line.appendChild(ln);
+                    const body = document.createElement('span');
+                    if (type === 'raw') body.innerHTML = content;
+                    else if (type === 'cm') { body.className = 'cm'; body.textContent = content; }
+                    else body.textContent = content;
+                    line.appendChild(body);
+                    codeEl.insertBefore(line, cursor);
+                    lineIndex++;
+                    if (content.trim() !== '') SFX.key(); else SFX.keyEnter();
+
+                    const lineHeight = parseFloat(getComputedStyle(codeEl).lineHeight) || 20;
+                    const offset = Math.max(0, lineIndex - 8) * lineHeight;
+                    codeEl.style.transform = `translateY(-${offset}px)`;
+
+                    const speed = Math.max(34, 140 - lineIndex * 3);
+                    wait(speed, typeNextLine);
+                }
+                wait(900, typeNextLine);
+            }
+
+            /* ---------------- FASE 1: teks ---------------- */
+            function startTextPhase() {
+                SFX.ambience();
+                textEl.classList.add('in');
+                wait(1200, () => skipBtn.classList.add('show'));
+
+                const letters = 'HIMASI'.split('');
+                letters.forEach((ch, i) => {
+                    const span = document.createElement('span');
+                    span.className = 'ichar';
+                    span.textContent = ch;
+                    const delay = 0.35 + i * 0.14;
+                    span.style.animationDelay = `${delay}s`;
+                    titleEl.appendChild(span);
+                    wait(delay * 1000, () => SFX.letter(i));
+                });
+                const lettersDone = (0.35 + letters.length * 0.14) * 1000; // ~1190ms
+
+                // Glitch pertama setelah semua huruf muncul
+                wait(lettersDone + 500, () => { titleEl.classList.add('glitch'); SFX.glitch(1); });
+                wait(lettersDone + 1200, () => titleEl.classList.remove('glitch'));
+
+                wait(lettersDone + 1300, () => { lineEl.classList.add('show'); SFX.shimmer(); });
+                wait(lettersDone + 1650, () => { subtitleEl.classList.add('show'); SFX.subtitle(); });
+
+                // Glitch kedua (lebih halus) pada judul + subjudul
+                wait(lettersDone + 3300, () => {
+                    titleEl.classList.add('glitch'); subtitleEl.classList.add('glitch'); SFX.glitch(0.6);
+                });
+                wait(lettersDone + 3950, () => { titleEl.classList.remove('glitch'); subtitleEl.classList.remove('glitch'); });
+
+                wait(lettersDone + 5000, startCodePhase);
+            }
+
+            /* ---------------- FASE 0: coba autoplay suara, tampilkan gerbang hanya jika diblokir ----------------
+               Browser melarang audio sebelum interaksi pengguna. Kode mencoba menyalakan audio lebih dulu:
+               - Jika diizinkan  -> intro langsung jalan bersuara, TANPA tombol.
+               - Jika diblokir   -> tampilkan tombol "Ketuk untuk memulai" agar suara tetap aktif.
+            */
+            let started = false;
+            function begin() {
+                if (started) return;
+                started = true;
+                if (!SHOW_EVERY_LOAD) { try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {} }
+                SFX.init(); SFX.resume();
+                gateEl.classList.add('out');
+                wait(700, startTextPhase);
+            }
+
+            SFX.init();
+            SFX.resume();
+            // Beri browser sedikit waktu memutuskan status AudioContext
+            wait(150, () => {
+                if (SFX.state() === 'running') {
+                    // Audio diizinkan: mulai otomatis tanpa gerbang
+                    started = true;
+                    if (!SHOW_EVERY_LOAD) { try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {} }
+                    gateEl.remove();
+                    wait(200, startTextPhase);
+                } else {
+                    // Audio diblokir: tampilkan gerbang (seluruh layar bisa diketuk)
+                    gateEl.addEventListener('click', begin);
+                    gateEl.addEventListener('touchend', (e) => { e.preventDefault(); begin(); }, { passive: false });
+                    window.addEventListener('keydown', function onKey() { begin(); window.removeEventListener('keydown', onKey); });
+                }
+            });
+        })();
+
+        window.addEventListener('load', () => {
+            initializeAppLogic();
+            
+            function initializeAppLogic() {
+                const backgroundVideoUrl = "HIMASI(1).mp4";
+                
+                const contentDataList = [
+                    { id: 1, title: "HIMASI UBSI TASIKMALAYA", description: "Mengupas tren teknologi terkini blablabla" },
+                    { id: 2, title: "KELAS REGULER", description: "Sesi praktik langsung untuk meningkatkan keterampilan pemrograman dan pengembangan aplikasi." },
+                    { id: 3, title: "BAKTI SOSIAL TA'JIL", description: "Berbagi dan mengabdi kepada masyarakat sebagai wujud kepedulian sosial mahasiswa." },
+                    { id: 4, title: "KELAS CODING", description: "Belajar Bersama untuk menggali lebih dalam tentang pemograman dan pengembangan aplikasi." },
+                    { id: 5, title: "MALAM KEAKRABAN", description: "Mempererat tali persaudaraan antar anggota dan alumni dari Himpunan Mahasiswa Sistem Informasi Universitas Bina Sarana Informatika Tasikmalaya dalam suasana yang hangat dan santai." },
+                    { id: 6, title: "TEMUKAN TOMBOL TERSEMBUNYI UNTUK DAPAT HADIAH", description: "Temukan tombol rahasia di halaman ini. Pemenang pertama yang mengisi formulir akan mendapatkan hadiah spesial dari kami!" },
+                ];
+                let currentContentIndex = 0;
+                let autoChangeInterval;
+                let hasDone = false;
+
+                const video = document.getElementById('background-video');
+                const videoTitle = document.getElementById('video-title');
+                const videoDescription = document.getElementById('video-description');
+                const textContent = document.getElementById('text-content');
+                const loader = document.getElementById('loader');
+                const progressBar = document.getElementById('progress-bar');
+                const parallaxLayers = document.querySelectorAll('.parallax-layer');
+                const cursorLight = document.getElementById('cursor-light');
+                const volumeToggle = document.getElementById('volume-toggle');
+                
+                const videoContainer = document.getElementById('video-container');
+                const endScreen = document.getElementById('end-screen');
+                const showContentAtSecond = 20;
+
+                const mutedIcon = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>`;
+                const unmutedIcon = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clip-rule="evenodd" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                </svg>`;
+                
+                video.muted = false;
+                volumeToggle.innerHTML = mutedIcon;
+                
+                volumeToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    video.muted = !video.muted;
+                    volumeToggle.innerHTML = video.muted ? unmutedIcon : mutedIcon;
+                });
+
+                function updateContent(index) {
+                    const contentData = contentDataList[index];
+                    currentContentIndex = index;
+                    textContent.classList.remove('visible');
+                    
+                    // setTimeout(() => {
+                    //     videoTitle.innerHTML = '';
+                    //     contentData.title.split('').forEach((char, i) => {
+                    //         const span = document.createElement('span');
+                    //         span.className = 'char inline-block';
+                    //         span.textContent = char === ' ' ? '\u00A0' : char;
+                    //         span.style.transitionDelay = `${i * 0.05}s`;
+                    //         videoTitle.appendChild(span);
+                    //     });
+                    //     // videoDescription.textContent = contentData.description;
+                    //     // updateNavActiveState()
+                    //     textContent.classList.add('visible');
+                    // }, 500);
+                }
+
+                function startAutoChange() {
+                    clearInterval(autoChangeInterval);
+                    autoChangeInterval = setInterval(() => {
+                        const nextIndex = (currentContentIndex + 1) % contentDataList.length;
+                        updateContent(nextIndex);
+                    }, 7000); 
+                }
+
+                
+                video.addEventListener('timeupdate', () => {
+                    if (!isNaN(video.duration)) {
+                        progressBar.style.width = `${(video.currentTime / video.duration) * 100}%`;
+                    
+                        if ((video.duration - video.currentTime) <= showContentAtSecond) {
+                            endScreen.classList.add('visible');
+                            videoContainer.classList.add('content-hidden');
+                            hasDone = true;
+                        } else if (hasDone === false) {
+                            endScreen.classList.remove('visible');
+                            videoContainer.classList.remove('content-hidden');
+                        }
+                    }
+                });
+
+                let videoStarted = false;
+                let videoReady = false;
+
+                function startMainVideo() {
+                    if (videoStarted || !videoReady || !introFinished) return;
+                    videoStarted = true;
+                    loader.style.display = 'none'; 
+                    video.style.opacity = '1'; 
+                    updateContent(0); 
+                    startAutoChange();
+                    video.play().catch(error => {
+                        console.log("Autoplay dengan suara diblokir, mengaktifkan mode mute.", error);
+                        video.muted = true;
+                        video.play();
+                        volumeToggle.innerHTML = unmutedIcon;
+                    });
+                }
+
+                // Video hanya mulai jika DUA syarat terpenuhi: intro+transisi selesai DAN video siap diputar
+                let introFinished = !window.__himasiIntroActive;
+                window.addEventListener('himasi:intro-done', () => {
+                    introFinished = true;
+                    if (!videoReady) loader.style.display = 'flex'; // video belum siap: tampilkan loader sampai siap
+                    startMainVideo();
+                });
+
+                video.addEventListener('canplay', () => { 
+                    videoReady = true;
+                    if (!introFinished) {
+                        // Intro masih berjalan: video sudah siap (sudah ter-buffer), tunggu sinyal intro selesai
+                        loader.style.display = 'none';
+                        return;
+                    }
+                    startMainVideo();
+                });
+                video.addEventListener('waiting', () => { if (videoStarted) loader.style.display = 'flex'; });
+                
+                let scene, camera, renderer, particles, lines;
+                let mouse = new THREE.Vector2(-100, -100);
+                
+                function initWebGL() {
+                    const canvas = document.getElementById('webgl-canvas');
+                    scene = new THREE.Scene();
+                    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                    camera.position.z = 50;
+                    renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    renderer.setPixelRatio(window.devicePixelRatio);
+                    const particlesGeometry = new THREE.BufferGeometry();
+                    const particlesCount = 200;
+                    const posArray = new Float32Array(particlesCount * 3);
+                    for(let i = 0; i < particlesCount * 3; i++) { posArray[i] = (Math.random() - 0.5) * 100; }
+                    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+                    const particlesMaterial = new THREE.PointsMaterial({ size: 0.3, color: 0x3b82f6 });
+                    particles = new THREE.Points(particlesGeometry, particlesMaterial);
+                    scene.add(particles);
+                    const linesGeometry = new THREE.BufferGeometry();
+                    const maxLines = particlesCount * particlesCount;
+                    const linesPosition = new Float32Array(maxLines * 3);
+                    linesGeometry.setAttribute('position', new THREE.BufferAttribute(linesPosition, 3));
+                    const linesMaterial = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.15 });
+                    lines = new THREE.LineSegments(linesGeometry, linesMaterial);
+                    scene.add(lines);
+                    window.addEventListener('resize', onWindowResize, false);
+                    document.addEventListener('mousemove', onMouseMove, false);
+                }
+                function onWindowResize() {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                }
+                function onMouseMove(event) {
+                    const mouseX = event.clientX / window.innerWidth * 2 - 1;
+                    const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+                    mouse.x = mouseX;
+                    mouse.y = mouseY;
+                    cursorLight.style.left = `${event.clientX}px`;
+                    cursorLight.style.top = `${event.clientY}px`;
+                    parallaxLayers.forEach(layer => {
+                        const strength = layer.dataset.parallaxStrength || 10;
+                        const parallaxX = -mouseX * strength;
+                        const parallaxY = -mouseY * strength;
+                        layer.style.transform = `translate3d(${parallaxX}px, ${parallaxY}px, 0)`;
+                    });
+                }
+                function animateWebGL() {
+                    requestAnimationFrame(animateWebGL);
+                    particles.rotation.y += 0.0002;
+                    particles.rotation.x += 0.0002;
+                    const positions = particles.geometry.attributes.position.array;
+                    const linePositions = lines.geometry.attributes.position.array;
+                    let lineCount = 0;
+                    const interactionDistance = 10;
+                    const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
+                    vector.unproject(camera);
+                    const dir = vector.sub(camera.position).normalize();
+                    const distance = -camera.position.z / dir.z;
+                    const mouseWorld = camera.position.clone().add(dir.multiplyScalar(distance));
+                    for (let i = 0; i < positions.length; i += 3) {
+                        const p1 = new THREE.Vector3(positions[i], positions[i+1], positions[i+2]);
+                        if (p1.distanceTo(mouseWorld) < interactionDistance) {
+                            for (let j = i + 3; j < positions.length; j += 3) {
+                                const p2 = new THREE.Vector3(positions[j], positions[j+1], positions[j+2]);
+                                if (p1.distanceTo(p2) < interactionDistance) {
+                                    linePositions[lineCount * 3] = p1.x; linePositions[lineCount * 3 + 1] = p1.y; linePositions[lineCount * 3 + 2] = p1.z; lineCount++;
+                                    linePositions[lineCount * 3] = p2.x; linePositions[lineCount * 3 + 1] = p2.y; linePositions[lineCount * 3 + 2] = p2.z; lineCount++;
+                                }
+                            }
+                        }
+                    }
+                    for(let i = lineCount * 3; i < linePositions.length; i++) { linePositions[i] = 0; }
+                    lines.geometry.setDrawRange(0, lineCount);
+                    lines.geometry.attributes.position.needsUpdate = true;
+                    renderer.render(scene, camera);
+                }
+
+                video.src = backgroundVideoUrl;
+                initWebGL();
+                animateWebGL();
+            }
+        });
+    </script>
+</body>
+</html>
+
