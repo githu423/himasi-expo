@@ -386,7 +386,7 @@
         <button id="intro-skip" type="button">Lewati</button>
     </div>
 
-    <video autoplay loop playsinline id="background-video">
+    <video loop playsinline preload="auto" id="background-video">
     </video>
     
     <div class="video-background-overlay"></div>
@@ -445,6 +445,9 @@
                 overlay.remove();
                 return;
             }
+
+            // Tandai bahwa intro sedang berjalan; video utama menunggu sampai intro selesai
+            window.__himasiIntroActive = true;
 
             overlay.hidden = false;
 
@@ -522,6 +525,9 @@
                 timers.forEach(clearTimeout);
                 try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {}
                 overlay.classList.add('intro-done');
+                window.__himasiIntroActive = false;
+                // Beri tahu aplikasi utama: video boleh mulai diputar sekarang
+                window.dispatchEvent(new CustomEvent('himasi:intro-done'));
                 setTimeout(() => overlay.remove(), 1000);
             }
             skipBtn.addEventListener('click', finishIntro);
@@ -675,7 +681,12 @@
                     }
                 });
 
-                video.addEventListener('canplay', () => { 
+                let videoStarted = false;
+                let videoReady = false;
+
+                function startMainVideo() {
+                    if (videoStarted || !videoReady) return;
+                    videoStarted = true;
                     loader.style.display = 'none'; 
                     video.style.opacity = '1'; 
                     updateContent(0); 
@@ -686,8 +697,21 @@
                         video.play();
                         volumeToggle.innerHTML = unmutedIcon;
                     });
+                }
+
+                // Video hanya mulai setelah intro selesai (atau langsung jika intro tidak tampil)
+                window.addEventListener('himasi:intro-done', startMainVideo);
+
+                video.addEventListener('canplay', () => { 
+                    videoReady = true;
+                    if (window.__himasiIntroActive) {
+                        // Intro masih berjalan: video sudah siap, tunggu sinyal intro selesai
+                        loader.style.display = 'none';
+                        return;
+                    }
+                    startMainVideo();
                 });
-                video.addEventListener('waiting', () => { loader.style.display = 'flex'; });
+                video.addEventListener('waiting', () => { if (videoStarted) loader.style.display = 'flex'; });
                 
                 let scene, camera, renderer, particles, lines;
                 let mouse = new THREE.Vector2(-100, -100);
