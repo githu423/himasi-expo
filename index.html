@@ -205,7 +205,7 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
 
-        /* ===================== INTRO (hanya tampil pertama kali) ===================== */
+        /* ===================== INTRO (tampil setiap halaman dimuat) ===================== */
         #intro-overlay {
             position: fixed;
             inset: 0;
@@ -371,7 +371,7 @@
 </head>
 <body class="bg-gray-900 text-white">
 
-    <!-- ===================== INTRO OVERLAY (hanya pertama kali) ===================== -->
+    <!-- ===================== INTRO OVERLAY (tampil setiap halaman dimuat) ===================== -->
     <div id="intro-overlay" hidden>
         <div id="intro-scanlines"></div>
         <div id="intro-text">
@@ -435,13 +435,16 @@
             const overlay = document.getElementById('intro-overlay');
             if (!overlay) return;
 
+            // Intro tampil setiap kali halaman dimuat / di-refresh.
+            // Jika ingin hanya sekali saja, ubah SHOW_EVERY_LOAD menjadi false.
+            const SHOW_EVERY_LOAD = true;
+
             let seen = false;
-            try { seen = localStorage.getItem(INTRO_KEY) === '1'; } catch (e) { seen = false; }
+            if (!SHOW_EVERY_LOAD) {
+                try { seen = localStorage.getItem(INTRO_KEY) === '1'; } catch (e) { seen = false; }
+            }
 
-            // Paksa tampil lagi dengan ?intro=1 (untuk keperluan tes)
-            const forceIntro = new URLSearchParams(location.search).get('intro') === '1';
-
-            if (seen && !forceIntro) {
+            if (seen) {
                 overlay.remove();
                 return;
             }
@@ -523,7 +526,7 @@
                 if (finished) return;
                 finished = true;
                 timers.forEach(clearTimeout);
-                try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {}
+                if (!SHOW_EVERY_LOAD) { try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {} }
                 overlay.classList.add('intro-done');
                 window.__himasiIntroActive = false;
                 // Beri tahu aplikasi utama: video boleh mulai diputar sekarang
