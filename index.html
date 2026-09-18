@@ -619,6 +619,7 @@
                 return {
                     init,
                     resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); },
+                    state() { return ctx ? ctx.state : 'unavailable'; },
                     // Ambience halus selama intro
                     ambience() {
                         if (!ctx) return;
@@ -828,29 +829,26 @@
                 wait(lettersDone + 5000, startCodePhase);
             }
 
-            /* ---------------- FASE 0: gerbang klik (hanya kunjungan pertama) ---------------- */
-            const GATE_KEY = 'himasi_gate_seen_v1';
-            let gateSeen = false;
-            try { gateSeen = localStorage.getItem(GATE_KEY) === '1'; } catch (e) {}
-
+            /* ---------------- FASE 0: gerbang klik ----------------
+               Browser melarang audio sebelum ada interaksi pengguna. Maka:
+               - Coba buat AudioContext lebih dulu. Jika browser mengizinkan (state 'running'),
+                 intro langsung berjalan TANPA gerbang.
+               - Jika audio ditahan (state 'suspended'), tampilkan gerbang supaya sound effect tetap terdengar.
+            */
             let started = false;
             function begin() {
                 if (started) return;
                 started = true;
-                try { localStorage.setItem(GATE_KEY, '1'); } catch (e) {}
                 SFX.init(); SFX.resume();
                 gateEl.classList.add('out');
                 wait(700, startTextPhase);
             }
 
-            if (gateSeen) {
-                // Bukan kunjungan pertama: langsung mulai tanpa tombol.
+            SFX.init();
+            const audioAllowed = SFX.state() === 'running';
+
+            if (audioAllowed) {
                 gateEl.remove();
-                SFX.init();
-                // Browser mungkin menahan audio sampai ada interaksi; aktifkan saat interaksi pertama apa pun.
-                const unlock = () => { SFX.resume(); document.removeEventListener('pointerdown', unlock); document.removeEventListener('keydown', unlock); };
-                document.addEventListener('pointerdown', unlock);
-                document.addEventListener('keydown', unlock);
                 started = true;
                 wait(300, startTextPhase);
             } else {
