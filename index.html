@@ -205,9 +205,186 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
 
+        /* ===================== INTRO (hanya tampil pertama kali) ===================== */
+        #intro-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: #030712;
+            overflow: hidden;
+            perspective: 900px;
+            perspective-origin: 50% 50%;
+            transition: opacity 0.9s ease-in-out;
+        }
+        #intro-overlay.intro-done { opacity: 0; pointer-events: none; }
+
+        #intro-overlay::before {
+            content: '';
+            position: absolute;
+            inset: -50%;
+            background: radial-gradient(circle at 50% 50%, rgba(59,130,246,0.18) 0%, rgba(3,7,18,0) 55%);
+            pointer-events: none;
+        }
+
+        /* Fase 1: Teks */
+        #intro-text {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 0 1.5rem;
+            transition: opacity 0.6s ease, transform 0.6s ease, filter 0.6s ease;
+        }
+        #intro-text.intro-text-out {
+            opacity: 0;
+            transform: scale(1.15);
+            filter: blur(8px);
+        }
+        #intro-title {
+            font-weight: 900;
+            font-size: clamp(3rem, 12vw, 8rem);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            line-height: 1;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(59,130,246,0.55);
+        }
+        #intro-title .ichar {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(40px) rotateX(-90deg);
+            animation: intro-char-in 0.6s cubic-bezier(.2,.8,.2,1) forwards;
+        }
+        @keyframes intro-char-in {
+            to { opacity: 1; transform: translateY(0) rotateX(0); }
+        }
+        #intro-subtitle {
+            margin-top: 1.25rem;
+            font-size: clamp(0.9rem, 2.8vw, 1.6rem);
+            font-weight: 600;
+            letter-spacing: 0.45em;
+            text-transform: uppercase;
+            color: #93c5fd;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: opacity 0.8s ease, transform 0.8s ease, letter-spacing 0.8s ease;
+        }
+        #intro-subtitle.show {
+            opacity: 1;
+            transform: translateY(0);
+            letter-spacing: 0.3em;
+        }
+        #intro-line {
+            width: 0;
+            height: 2px;
+            margin-top: 1.5rem;
+            background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+            transition: width 0.9s ease;
+        }
+        #intro-line.show { width: min(60vw, 420px); }
+
+        /* Fase 2: Kode masuk ke dalam device */
+        #intro-code-wrap {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            opacity: 0;
+            transform-style: preserve-3d;
+            transform: translateZ(0);
+        }
+        #intro-code-wrap.show { opacity: 1; }
+        #intro-code-wrap.dive {
+            animation: intro-dive 2.6s cubic-bezier(.55,0,.85,.3) forwards;
+        }
+        @keyframes intro-dive {
+            0%   { transform: translateZ(0) rotateX(0deg); opacity: 1; }
+            70%  { opacity: 1; }
+            100% { transform: translateZ(1100px) rotateX(18deg); opacity: 0; }
+        }
+        #intro-code {
+            margin: 0;
+            width: min(92vw, 1000px);
+            font-family: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+            font-size: clamp(0.7rem, 1.5vw, 0.95rem);
+            line-height: 1.55;
+            color: #cbd5e1;
+            white-space: pre;
+            padding-top: 40vh;
+            will-change: transform;
+        }
+        #intro-code .ln { color: #475569; display: inline-block; width: 3.2em; text-align: right; margin-right: 1.4em; user-select: none; }
+        #intro-code .kw { color: #c084fc; }
+        #intro-code .fn { color: #60a5fa; }
+        #intro-code .st { color: #86efac; }
+        #intro-code .cm { color: #64748b; font-style: italic; }
+        #intro-code .nm { color: #fbbf24; }
+        #intro-code .cursor {
+            display: inline-block;
+            width: 0.6em;
+            height: 1.1em;
+            background: #3b82f6;
+            vertical-align: text-bottom;
+            animation: intro-blink 0.8s steps(1) infinite;
+        }
+        @keyframes intro-blink { 50% { opacity: 0; } }
+
+        #intro-scanlines {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 3px);
+            mix-blend-mode: overlay;
+        }
+        #intro-flash {
+            position: absolute;
+            inset: 0;
+            background: #fff;
+            opacity: 0;
+            pointer-events: none;
+        }
+        #intro-flash.go { animation: intro-flash 0.7s ease-out forwards; }
+        @keyframes intro-flash { 0% { opacity: 0; } 20% { opacity: 0.9; } 100% { opacity: 0; } }
+
+        #intro-skip {
+            position: absolute;
+            right: 1.25rem;
+            bottom: 1.25rem;
+            font-size: 0.75rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.45);
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 999px;
+            padding: 0.45rem 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        #intro-skip:hover { color: #fff; border-color: #3b82f6; }
+
     </style>
 </head>
 <body class="bg-gray-900 text-white">
+
+    <!-- ===================== INTRO OVERLAY (hanya pertama kali) ===================== -->
+    <div id="intro-overlay" hidden>
+        <div id="intro-scanlines"></div>
+        <div id="intro-text">
+            <div id="intro-title" aria-label="HIMASI"></div>
+            <div id="intro-line"></div>
+            <div id="intro-subtitle">HIMASI UBSI TASIKMALAYA</div>
+        </div>
+        <div id="intro-code-wrap">
+            <pre id="intro-code"></pre>
+        </div>
+        <div id="intro-flash"></div>
+        <button id="intro-skip" type="button">Lewati</button>
+    </div>
 
     <video autoplay loop playsinline id="background-video">
     </video>
@@ -252,6 +429,157 @@
     </div>
 
     <script>
+        // ===================== INTRO ANIMATION (hanya untuk kunjungan pertama) =====================
+        (function runIntroOnce() {
+            const INTRO_KEY = 'himasi_intro_seen_v1';
+            const overlay = document.getElementById('intro-overlay');
+            if (!overlay) return;
+
+            let seen = false;
+            try { seen = localStorage.getItem(INTRO_KEY) === '1'; } catch (e) { seen = false; }
+
+            // Paksa tampil lagi dengan ?intro=1 (untuk keperluan tes)
+            const forceIntro = new URLSearchParams(location.search).get('intro') === '1';
+
+            if (seen && !forceIntro) {
+                overlay.remove();
+                return;
+            }
+
+            overlay.hidden = false;
+
+            const titleEl = document.getElementById('intro-title');
+            const subtitleEl = document.getElementById('intro-subtitle');
+            const lineEl = document.getElementById('intro-line');
+            const textEl = document.getElementById('intro-text');
+            const codeWrap = document.getElementById('intro-code-wrap');
+            const codeEl = document.getElementById('intro-code');
+            const flashEl = document.getElementById('intro-flash');
+            const skipBtn = document.getElementById('intro-skip');
+
+            // Fase 1: teks HIMASI muncul per huruf
+            'HIMASI'.split('').forEach((ch, i) => {
+                const span = document.createElement('span');
+                span.className = 'ichar';
+                span.textContent = ch;
+                span.style.animationDelay = `${0.25 + i * 0.12}s`;
+                titleEl.appendChild(span);
+            });
+
+            // Kode yang akan "diketik" (dibuat panjang, lalu meluncur ke dalam device)
+            const codeLines = [
+                ['cm', '// ============================================='],
+                ['cm', '//  HIMASI UBSI TASIKMALAYA — Portofolio Kegiatan'],
+                ['cm', '//  Himpunan Mahasiswa Sistem Informasi'],
+                ['cm', '// ============================================='],
+                ['', ''],
+                ['raw', '<span class="kw">import</span> { Mahasiswa, Kegiatan } <span class="kw">from</span> <span class="st">"./himasi/core"</span>;'],
+                ['raw', '<span class="kw">import</span> { Kolaborasi, Inovasi } <span class="kw">from</span> <span class="st">"./himasi/nilai"</span>;'],
+                ['', ''],
+                ['raw', '<span class="kw">const</span> <span class="fn">HIMASI</span> = {'],
+                ['raw', '  nama: <span class="st">"Himpunan Mahasiswa Sistem Informasi"</span>,'],
+                ['raw', '  kampus: <span class="st">"Universitas Bina Sarana Informatika"</span>,'],
+                ['raw', '  kota: <span class="st">"Tasikmalaya"</span>,'],
+                ['raw', '  semangat: <span class="nm">100</span>,'],
+                ['raw', '};'],
+                ['', ''],
+                ['raw', '<span class="kw">const</span> kegiatan = ['],
+                ['raw', '  <span class="kw">new</span> <span class="fn">Kegiatan</span>(<span class="st">"Kelas Reguler"</span>, { fokus: <span class="st">"pemrograman"</span> }),'],
+                ['raw', '  <span class="kw">new</span> <span class="fn">Kegiatan</span>(<span class="st">"Bakti Sosial Ta\'jil"</span>, { fokus: <span class="st">"kepedulian"</span> }),'],
+                ['raw', '  <span class="kw">new</span> <span class="fn">Kegiatan</span>(<span class="st">"Kelas Coding"</span>, { fokus: <span class="st">"pengembangan aplikasi"</span> }),'],
+                ['raw', '  <span class="kw">new</span> <span class="fn">Kegiatan</span>(<span class="st">"Malam Keakraban"</span>, { fokus: <span class="st">"persaudaraan"</span> }),'],
+                ['raw', '];'],
+                ['', ''],
+                ['raw', '<span class="kw">async function</span> <span class="fn">bootstrap</span>() {'],
+                ['raw', '  <span class="kw">const</span> anggota = <span class="kw">await</span> Mahasiswa.<span class="fn">kumpulkan</span>({ prodi: <span class="st">"Sistem Informasi"</span> });'],
+                ['raw', '  anggota.<span class="fn">forEach</span>(m => m.<span class="fn">tanamkan</span>(Kolaborasi, Inovasi));'],
+                ['', ''],
+                ['raw', '  <span class="kw">for</span> (<span class="kw">const</span> k <span class="kw">of</span> kegiatan) {'],
+                ['raw', '    <span class="kw">await</span> k.<span class="fn">laksanakan</span>({ bersama: anggota });'],
+                ['raw', '    console.<span class="fn">log</span>(<span class="st">`✔ ${k.nama} selesai`</span>);'],
+                ['raw', '  }'],
+                ['', ''],
+                ['raw', '  <span class="kw">return</span> HIMASI.<span class="fn">tumbuh</span>({ bersama: anggota, tanpaHenti: <span class="kw">true</span> });'],
+                ['raw', '}'],
+                ['', ''],
+                ['raw', '<span class="fn">bootstrap</span>()'],
+                ['raw', '  .<span class="fn">then</span>(() => console.<span class="fn">log</span>(<span class="st">"HIMASI UBSI TASIKMALAYA — siap!"</span>))'],
+                ['raw', '  .<span class="fn">catch</span>(err => console.<span class="fn">error</span>(err));'],
+                ['', ''],
+                ['raw', '<span class="kw">export default</span> HIMASI;'],
+                ['cm', '// > memuat portofolio kegiatan ...'],
+                ['cm', '// > menghubungkan ke device ...'],
+                ['cm', '// > masuk.'],
+            ];
+
+            const timers = [];
+            let finished = false;
+            const wait = (ms, fn) => timers.push(setTimeout(fn, ms));
+
+            function finishIntro() {
+                if (finished) return;
+                finished = true;
+                timers.forEach(clearTimeout);
+                try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {}
+                overlay.classList.add('intro-done');
+                setTimeout(() => overlay.remove(), 1000);
+            }
+            skipBtn.addEventListener('click', finishIntro);
+
+            // Fase 2: ketik kode + scroll ke bawah
+            function startCodePhase() {
+                textEl.classList.add('intro-text-out');
+                codeWrap.classList.add('show');
+
+                let lineIndex = 0;
+                const cursor = document.createElement('span');
+                cursor.className = 'cursor';
+                codeEl.appendChild(cursor);
+
+                function typeNextLine() {
+                    if (lineIndex >= codeLines.length) {
+                        // Selesai mengetik -> menyelam masuk ke device
+                        wait(300, () => {
+                            codeWrap.classList.add('dive');
+                            wait(1900, () => flashEl.classList.add('go'));
+                            wait(2200, finishIntro);
+                        });
+                        return;
+                    }
+                    const [type, content] = codeLines[lineIndex];
+                    const line = document.createElement('span');
+                    const ln = document.createElement('span');
+                    ln.className = 'ln';
+                    ln.textContent = String(lineIndex + 1);
+                    line.appendChild(ln);
+                    const body = document.createElement('span');
+                    if (type === 'raw') body.innerHTML = content;
+                    else if (type === 'cm') { body.className = 'cm'; body.textContent = content; }
+                    else body.textContent = content;
+                    line.appendChild(body);
+                    line.appendChild(document.createTextNode('\n'));
+                    codeEl.insertBefore(line, cursor);
+                    lineIndex++;
+
+                    // Kode "turun ke bawah": geser konten ke atas mengikuti baris terbaru
+                    const lineHeight = parseFloat(getComputedStyle(codeEl).lineHeight) || 20;
+                    const offset = Math.max(0, lineIndex - 8) * lineHeight;
+                    codeEl.style.transition = 'transform 0.18s ease-out';
+                    codeEl.style.transform = `translateY(-${offset}px)`;
+
+                    // Semakin lama semakin cepat (efek akselerasi)
+                    const speed = Math.max(28, 130 - lineIndex * 3);
+                    wait(speed, typeNextLine);
+                }
+                wait(250, typeNextLine);
+            }
+
+            // Timeline fase 1
+            wait(1200, () => { lineEl.classList.add('show'); });
+            wait(1500, () => { subtitleEl.classList.add('show'); });
+            wait(3600, startCodePhase);
+        })();
+
         window.addEventListener('load', () => {
             initializeAppLogic();
             
