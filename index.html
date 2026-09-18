@@ -219,6 +219,9 @@
             transition: opacity 1.4s var(--ease-inout);
         }
         #intro-overlay.intro-done { opacity: 0; pointer-events: none; }
+        #intro-text, #intro-code-wrap, #intro-flash, #intro-scanlines, #intro-overlay::before { pointer-events: none; }
+        #intro-gate { z-index: 5; }
+        #intro-skip { z-index: 6; }
         #intro-overlay::before {
             content: '';
             position: absolute;
@@ -822,18 +825,36 @@
                 wait(lettersDone + 5000, startCodePhase);
             }
 
-            /* ---------------- FASE 0: gerbang klik ---------------- */
+            /* ---------------- FASE 0: gerbang klik (hanya kunjungan pertama) ---------------- */
+            const GATE_KEY = 'himasi_gate_seen_v1';
+            let gateSeen = false;
+            try { gateSeen = localStorage.getItem(GATE_KEY) === '1'; } catch (e) {}
+
             let started = false;
             function begin() {
                 if (started) return;
                 started = true;
+                try { localStorage.setItem(GATE_KEY, '1'); } catch (e) {}
                 SFX.init(); SFX.resume();
                 gateEl.classList.add('out');
                 wait(700, startTextPhase);
             }
-            gateEl.addEventListener('click', begin);
-            gateEl.addEventListener('touchend', (e) => { e.preventDefault(); begin(); }, { passive: false });
-            window.addEventListener('keydown', function onKey() { begin(); window.removeEventListener('keydown', onKey); });
+
+            if (gateSeen) {
+                // Bukan kunjungan pertama: langsung mulai tanpa tombol.
+                gateEl.remove();
+                SFX.init();
+                // Browser mungkin menahan audio sampai ada interaksi; aktifkan saat interaksi pertama apa pun.
+                const unlock = () => { SFX.resume(); document.removeEventListener('pointerdown', unlock); document.removeEventListener('keydown', unlock); };
+                document.addEventListener('pointerdown', unlock);
+                document.addEventListener('keydown', unlock);
+                started = true;
+                wait(300, startTextPhase);
+            } else {
+                gateEl.addEventListener('click', begin);
+                gateEl.addEventListener('touchend', (e) => { e.preventDefault(); begin(); }, { passive: false });
+                window.addEventListener('keydown', function onKey() { begin(); window.removeEventListener('keydown', onKey); });
+            }
         })();
 
         window.addEventListener('load', () => {
