@@ -244,7 +244,9 @@
             cursor: pointer;
             transition: opacity 0.9s var(--ease-inout), transform 0.9s var(--ease-inout), filter 0.9s var(--ease-inout);
         }
-        #intro-gate.out { opacity: 0; transform: scale(1.06); filter: blur(6px); pointer-events: none; }
+        #intro-gate { opacity: 0; animation: gate-appear 0.8s var(--ease-inout) 0.2s forwards; }
+        @keyframes gate-appear { to { opacity: 1; } }
+        #intro-gate.out { animation: none; opacity: 0; transform: scale(1.06); filter: blur(6px); pointer-events: none; }
         #intro-gate .gate-ring {
             width: 64px; height: 64px;
             border-radius: 50%;
@@ -916,9 +918,10 @@
                 wait(lettersDone + 5000, startCodePhase);
             }
 
-            /* ---------------- FASE 0: gerbang klik ----------------
-               Selalu tampil bersama intro (intro hanya sekali), sehingga suara dijamin aktif
-               karena browser mengizinkan audio setelah interaksi pengguna.
+            /* ---------------- FASE 0: coba autoplay suara, tampilkan gerbang hanya jika diblokir ----------------
+               Browser melarang audio sebelum interaksi pengguna. Kode mencoba menyalakan audio lebih dulu:
+               - Jika diizinkan  -> intro langsung jalan bersuara, TANPA tombol.
+               - Jika diblokir   -> tampilkan tombol "Ketuk untuk memulai" agar suara tetap aktif.
             */
             let started = false;
             function begin() {
@@ -929,9 +932,24 @@
                 gateEl.classList.add('out');
                 wait(700, startTextPhase);
             }
-            gateEl.addEventListener('click', begin);
-            gateEl.addEventListener('touchend', (e) => { e.preventDefault(); begin(); }, { passive: false });
-            window.addEventListener('keydown', function onKey() { begin(); window.removeEventListener('keydown', onKey); });
+
+            SFX.init();
+            SFX.resume();
+            // Beri browser sedikit waktu memutuskan status AudioContext
+            wait(150, () => {
+                if (SFX.state() === 'running') {
+                    // Audio diizinkan: mulai otomatis tanpa gerbang
+                    started = true;
+                    if (!SHOW_EVERY_LOAD) { try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {} }
+                    gateEl.remove();
+                    wait(200, startTextPhase);
+                } else {
+                    // Audio diblokir: tampilkan gerbang (seluruh layar bisa diketuk)
+                    gateEl.addEventListener('click', begin);
+                    gateEl.addEventListener('touchend', (e) => { e.preventDefault(); begin(); }, { passive: false });
+                    window.addEventListener('keydown', function onKey() { begin(); window.removeEventListener('keydown', onKey); });
+                }
+            });
         })();
 
         window.addEventListener('load', () => {
