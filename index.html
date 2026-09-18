@@ -205,7 +205,7 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
 
-        /* ===================== INTRO (tampil setiap halaman dimuat) ===================== */
+        /* ===================== INTRO (hanya kunjungan pertama) ===================== */
         :root { --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1); --ease-inout: cubic-bezier(0.65, 0, 0.35, 1); }
 
         #intro-overlay {
@@ -480,7 +480,7 @@
 </head>
 <body class="bg-gray-900 text-white">
 
-    <!-- ===================== INTRO OVERLAY (tampil setiap halaman dimuat) ===================== -->
+    <!-- ===================== INTRO OVERLAY (hanya kunjungan pertama) ===================== -->
     <div id="intro-overlay" hidden>
         <div id="intro-scanlines"></div>
         <div id="intro-gate">
@@ -542,15 +542,16 @@
     </div>
 
     <script>
-        // ===================== INTRO ANIMATION (tampil setiap halaman dimuat) =====================
+        // ===================== INTRO ANIMATION (hanya kunjungan pertama) =====================
         (function runIntro() {
             const INTRO_KEY = 'himasi_intro_seen_v1';
             const overlay = document.getElementById('intro-overlay');
             if (!overlay) return;
 
-            // Intro tampil setiap kali halaman dimuat / di-refresh.
-            // Jika ingin hanya sekali saja, ubah SHOW_EVERY_LOAD menjadi false.
-            const SHOW_EVERY_LOAD = true;
+            // Intro (beserta tombol memulai) hanya tampil pada kunjungan PERTAMA.
+            // Refresh berikutnya langsung ke website tanpa intro.
+            // Ubah ke true jika ingin intro tampil setiap kali halaman dimuat.
+            const SHOW_EVERY_LOAD = false;
 
             let seen = false;
             if (!SHOW_EVERY_LOAD) {
@@ -915,41 +916,22 @@
                 wait(lettersDone + 5000, startCodePhase);
             }
 
-            /* ---------------- FASE 0: gerbang klik (HANYA kunjungan pertama) ----------------
-               Catatan: browser melarang audio sebelum pengguna berinteraksi. Pada kunjungan
-               berikutnya gerbang tidak ditampilkan; intro langsung jalan dan suara akan aktif
-               otomatis begitu pengguna klik/sentuh/tekan tombol apa pun (jika browser menahannya).
+            /* ---------------- FASE 0: gerbang klik ----------------
+               Selalu tampil bersama intro (intro hanya sekali), sehingga suara dijamin aktif
+               karena browser mengizinkan audio setelah interaksi pengguna.
             */
-            const GATE_KEY = 'himasi_gate_seen_v1';
-            let gateSeen = false;
-            try { gateSeen = localStorage.getItem(GATE_KEY) === '1'; } catch (e) {}
-
             let started = false;
             function begin() {
                 if (started) return;
                 started = true;
-                try { localStorage.setItem(GATE_KEY, '1'); } catch (e) {}
+                if (!SHOW_EVERY_LOAD) { try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {} }
                 SFX.init(); SFX.resume();
                 gateEl.classList.add('out');
                 wait(700, startTextPhase);
             }
-
-            if (gateSeen) {
-                gateEl.remove();
-                started = true;
-                SFX.init();
-                // Buka audio pada interaksi pertama apa pun (jika browser masih menahannya)
-                const unlock = () => {
-                    SFX.resume();
-                    ['pointerdown', 'touchstart', 'keydown'].forEach(ev => document.removeEventListener(ev, unlock));
-                };
-                ['pointerdown', 'touchstart', 'keydown'].forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
-                wait(300, startTextPhase);
-            } else {
-                gateEl.addEventListener('click', begin);
-                gateEl.addEventListener('touchend', (e) => { e.preventDefault(); begin(); }, { passive: false });
-                window.addEventListener('keydown', function onKey() { begin(); window.removeEventListener('keydown', onKey); });
-            }
+            gateEl.addEventListener('click', begin);
+            gateEl.addEventListener('touchend', (e) => { e.preventDefault(); begin(); }, { passive: false });
+            window.addEventListener('keydown', function onKey() { begin(); window.removeEventListener('keydown', onKey); });
         })();
 
         window.addEventListener('load', () => {
