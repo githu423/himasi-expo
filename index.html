@@ -737,10 +737,13 @@
                 if (!SHOW_EVERY_LOAD) { try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {} }
                 SFX.stopAmbience(1.4);
                 overlay.classList.add('intro-done');
-                window.__himasiIntroActive = false;
-                // Beri tahu aplikasi utama: video boleh mulai diputar sekarang
-                window.dispatchEvent(new CustomEvent('himasi:intro-done'));
-                setTimeout(() => overlay.remove(), 1500);
+                // Tunggu transisi fade-out overlay benar-benar selesai, baru halaman dianggap siap
+                setTimeout(() => {
+                    overlay.remove();
+                    window.__himasiIntroActive = false;
+                    // Beri tahu aplikasi utama: intro & transisi selesai, video boleh mulai
+                    window.dispatchEvent(new CustomEvent('himasi:intro-done'));
+                }, 1500);
             }
             skipBtn.addEventListener('click', (e) => { e.stopPropagation(); finishIntro(); });
 
@@ -956,7 +959,7 @@
                 let videoReady = false;
 
                 function startMainVideo() {
-                    if (videoStarted || !videoReady) return;
+                    if (videoStarted || !videoReady || !introFinished) return;
                     videoStarted = true;
                     loader.style.display = 'none'; 
                     video.style.opacity = '1'; 
@@ -970,13 +973,18 @@
                     });
                 }
 
-                // Video hanya mulai setelah intro selesai (atau langsung jika intro tidak tampil)
-                window.addEventListener('himasi:intro-done', startMainVideo);
+                // Video hanya mulai jika DUA syarat terpenuhi: intro+transisi selesai DAN video siap diputar
+                let introFinished = !window.__himasiIntroActive;
+                window.addEventListener('himasi:intro-done', () => {
+                    introFinished = true;
+                    if (!videoReady) loader.style.display = 'flex'; // video belum siap: tampilkan loader sampai siap
+                    startMainVideo();
+                });
 
                 video.addEventListener('canplay', () => { 
                     videoReady = true;
-                    if (window.__himasiIntroActive) {
-                        // Intro masih berjalan: video sudah siap, tunggu sinyal intro selesai
+                    if (!introFinished) {
+                        // Intro masih berjalan: video sudah siap (sudah ter-buffer), tunggu sinyal intro selesai
                         loader.style.display = 'none';
                         return;
                     }
