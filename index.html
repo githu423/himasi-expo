@@ -574,109 +574,195 @@
 
             /* ---------------- SOUND ENGINE (Web Audio, tanpa file eksternal) ---------------- */
             const SFX = (() => {
-                let ctx = null, master = null, noiseBuf = null;
+                let ctx = null, master = null, dry = null, verb = null, verbGain = null, noiseBuf = null;
+
+                function makeImpulse(seconds, decay) {
+                    const rate = ctx.sampleRate, len = rate * seconds;
+                    const buf = ctx.createBuffer(2, len, rate);
+                    for (let c = 0; c < 2; c++) {
+                        const d = buf.getChannelData(c);
+                        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+                    }
+                    return buf;
+                }
                 function init() {
                     if (ctx) return;
                     const AC = window.AudioContext || window.webkitAudioContext;
                     if (!AC) return;
                     ctx = new AC();
-                    master = ctx.createGain();
-                    master.gain.value = 0.7;
-                    master.connect(ctx.destination);
-                    // white noise buffer 2 detik
+                    master = ctx.createGain(); master.gain.value = 0.8;
+                    const comp = ctx.createDynamicsCompressor();
+                    comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
+                    master.connect(comp).connect(ctx.destination);
+                    dry = ctx.createGain(); dry.connect(master);
+                    verb = ctx.createConvolver(); verb.buffer = makeImpulse(2.2, 3.5);
+                    verbGain = ctx.createGain(); verbGain.gain.value = 0.35;
+                    verb.connect(verbGain).connect(master);
                     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
                     const d = noiseBuf.getChannelData(0);
                     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
                 }
                 const now = () => ctx.currentTime;
-                function env(g, t, a, peak, d, sustain = 0.0001) {
+                const rnd = (a, b) => a + Math.random() * (b - a);
+                function out(node, wet = 0) {
+                    node.connect(dry);
+                    if (wet > 0) { const g = ctx.createGain(); g.gain.value = wet; node.connect(g).connect(verb); }
+                }
+                function env(g, t, a, peak, d, curve = 'exp') {
                     g.gain.cancelScheduledValues(t);
                     g.gain.setValueAtTime(0.0001, t);
-                    g.gain.exponentialRampToValueAtTime(peak, t + a);
-                    g.gain.exponentialRampToValueAtTime(sustain, t + a + d);
+                    if (curve === 'lin') { g.gain.linearRampToValueAtTime(peak, t + a); g.gain.linearRampToValueAtTime(0.0001, t + a + d); }
+                    else { g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
                 }
-                function tone(freq, { type = 'sine', a = 0.01, d = 0.3, vol = 0.2, slideTo = null, t = 0 } = {}) {
+                function tone(freq, { type = 'sine', a = 0.01, d = 0.3, vol = 0.2, slideTo = null, t = 0, wet = 0, lp = null, detune = 0 } = {}) {
                     if (!ctx) return;
                     const o = ctx.createOscillator(), g = ctx.createGain();
                     const st = now() + t;
-                    o.type = type; o.frequency.setValueAtTime(freq, st);
+                    o.type = type; o.detune.value = detune; o.frequency.setValueAtTime(freq, st);
                     if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, st + a + d);
                     env(g, st, a, vol, d);
-                    o.connect(g).connect(master);
+                    let chain = o;
+                    if (lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; chain.connect(f); chain = f; }
+                    chain.connect(g); out(g, wet);
                     o.start(st); o.stop(st + a + d + 0.05);
                 }
-                function noise({ a = 0.005, d = 0.1, vol = 0.15, type = 'bandpass', f = 1200, q = 1, fTo = null, t = 0 } = {}) {
+                function noise({ a = 0.005, d = 0.1, vol = 0.15, type = 'bandpass', f = 1200, q = 1, fTo = null, fMid = null, t = 0, wet = 0 } = {}) {
                     if (!ctx) return;
-                    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+                    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true; src.playbackRate.value = rnd(0.9, 1.1);
                     const flt = ctx.createBiquadFilter(); flt.type = type; flt.Q.value = q;
-                    const st = now() + t;
+                    const st = now() + t, end = st + a + d;
                     flt.frequency.setValueAtTime(f, st);
-                    if (fTo) flt.frequency.exponentialRampToValueAtTime(fTo, st + a + d);
+                    if (fMid && fTo) { flt.frequency.exponentialRampToValueAtTime(fMid, st + a); flt.frequency.exponentialRampToValueAtTime(fTo, end); }
+                    else if (fTo) flt.frequency.exponentialRampToValueAtTime(fTo, end);
                     const g = ctx.createGain(); env(g, st, a, vol, d);
-                    src.connect(flt).connect(g).connect(master);
-                    src.start(st); src.stop(st + a + d + 0.05);
+                    src.connect(flt).connect(g); out(g, wet);
+                    src.start(st); src.stop(end + 0.05);
                 }
+                // Bitcrusher sederhana untuk glitch (WaveShaper kuantisasi)
+                function crusherCurve(bits) {
+                    const n = 65536, c = new Float32Array(n), step = Math.pow(0.5, bits);
+                    for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; c[i] = Math.round(x / step) * step; }
+                    return c;
+                }
+
                 return {
                     init,
                     resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); },
                     state() { return ctx ? ctx.state : 'unavailable'; },
-                    // Ambience halus selama intro
+
                     ambience() {
                         if (!ctx) return;
                         const o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
                         o.type = 'sawtooth'; o.frequency.value = 55; o2.type = 'sawtooth'; o2.frequency.value = 55.6;
                         f.type = 'lowpass'; f.frequency.value = 220;
-                        g.gain.setValueAtTime(0.0001, now()); g.gain.exponentialRampToValueAtTime(0.06, now() + 2.5);
-                        o.connect(f); o2.connect(f); f.connect(g).connect(master);
+                        g.gain.setValueAtTime(0.0001, now()); g.gain.exponentialRampToValueAtTime(0.05, now() + 2.5);
+                        o.connect(f); o2.connect(f); f.connect(g); out(g, 0.5);
                         o.start(); o2.start();
                         this._amb = { o, o2, g };
                     },
                     stopAmbience(fade = 1.5) {
                         if (!ctx || !this._amb) return;
                         const { o, o2, g } = this._amb;
-                        g.gain.cancelScheduledValues(now());
-                        g.gain.setValueAtTime(g.gain.value, now());
+                        g.gain.cancelScheduledValues(now()); g.gain.setValueAtTime(g.gain.value, now());
                         g.gain.exponentialRampToValueAtTime(0.0001, now() + fade);
                         o.stop(now() + fade + 0.1); o2.stop(now() + fade + 0.1);
                         this._amb = null;
                     },
-                    letter(i) { // "ting" halus per huruf, nada naik
-                        tone(440 * Math.pow(2, i / 12) , { type: 'sine', a: 0.01, d: 0.6, vol: 0.12 });
-                        tone(880 * Math.pow(2, i / 12) , { type: 'triangle', a: 0.005, d: 0.25, vol: 0.05 });
+                    letter(i) {
+                        tone(440 * Math.pow(2, i / 12), { type: 'sine', a: 0.01, d: 0.7, vol: 0.12, wet: 0.6 });
+                        tone(880 * Math.pow(2, i / 12), { type: 'triangle', a: 0.005, d: 0.3, vol: 0.05, wet: 0.4 });
                         noise({ a: 0.002, d: 0.05, vol: 0.04, f: 4000, q: 2 });
                     },
-                    shimmer() { // garis melebar
-                        noise({ a: 0.4, d: 1.0, vol: 0.05, type: 'highpass', f: 3000, fTo: 8000 });
-                    },
+                    shimmer() { noise({ a: 0.4, d: 1.0, vol: 0.05, type: 'highpass', f: 3000, fTo: 8000, wet: 0.6 }); },
                     subtitle() {
-                        tone(220, { type: 'sine', a: 0.3, d: 1.2, vol: 0.08 });
-                        tone(330, { type: 'sine', a: 0.4, d: 1.2, vol: 0.05 });
+                        tone(220, { type: 'sine', a: 0.3, d: 1.4, vol: 0.08, wet: 0.7 });
+                        tone(330, { type: 'sine', a: 0.4, d: 1.4, vol: 0.05, wet: 0.7 });
                     },
-                    glitch(intense = 1) { // burst noise digital
-                        for (let i = 0; i < 7; i++) {
-                            const t = i * 0.085;
-                            noise({ a: 0.002, d: 0.045, vol: 0.14 * intense, type: 'bandpass', f: 500 + Math.random() * 4000, q: 6, t });
-                            tone(120 + Math.random() * 900, { type: 'square', a: 0.002, d: 0.04, vol: 0.05 * intense, t });
+
+                    /* GLITCH: stutter digital — nada patah-patah acak ter-bitcrush + sapuan turun + dengung listrik */
+                    glitch(intense = 1) {
+                        if (!ctx) return;
+                        const st = now(), total = 0.6;
+                        const crush = ctx.createWaveShaper(); crush.curve = crusherCurve(5);
+                        const bus = ctx.createGain(); bus.gain.value = 0.22 * intense;
+                        crush.connect(bus); out(bus, 0.15);
+
+                        // 1) Stutter: gate on/off cepat dengan pitch acak (sample & hold)
+                        const o = ctx.createOscillator(); o.type = 'square';
+                        const g = ctx.createGain(); g.gain.setValueAtTime(0, st);
+                        o.connect(g).connect(crush);
+                        let t = st;
+                        while (t < st + total) {
+                            const len = rnd(0.015, 0.06);
+                            o.frequency.setValueAtTime([110, 220, 330, 440, 660, 880, 1320][Math.floor(rnd(0, 7))] * rnd(0.97, 1.03), t);
+                            g.gain.setValueAtTime(rnd(0.4, 1), t);
+                            g.gain.setValueAtTime(0, t + len * rnd(0.4, 0.8));
+                            t += len;
                         }
-                        noise({ a: 0.01, d: 0.25, vol: 0.06 * intense, type: 'lowpass', f: 300 });
+                        o.start(st); o.stop(st + total + 0.05);
+
+                        // 2) Data-noise: burst noise sempit dengan frekuensi melompat
+                        for (let i = 0; i < 6; i++) {
+                            noise({ a: 0.002, d: rnd(0.02, 0.05), vol: 0.10 * intense, type: 'bandpass', f: rnd(800, 6000), q: 12, t: rnd(0, total - 0.05) });
+                        }
+                        // 3) Sapuan pitch turun (zzt-woo) di awal & tengah
+                        tone(1800, { type: 'sawtooth', a: 0.005, d: 0.12, vol: 0.06 * intense, slideTo: 90, lp: 3000 });
+                        tone(1200, { type: 'sawtooth', a: 0.005, d: 0.10, vol: 0.05 * intense, slideTo: 70, lp: 3000, t: total * 0.55 });
+                        // 4) Dengung listrik 50Hz singkat + thud rendah untuk "berat"
+                        tone(50, { type: 'sawtooth', a: 0.01, d: 0.3, vol: 0.10 * intense, lp: 400 });
+                        tone(90, { type: 'sine', a: 0.005, d: 0.25, vol: 0.14 * intense, slideTo: 35 });
                     },
-                    whooshOut() { // transisi teks -> kode
-                        noise({ a: 0.5, d: 1.0, vol: 0.12, type: 'bandpass', f: 400, fTo: 3000, q: 0.8 });
+
+                    /* WHOOSH: teks memudar → kode masuk. Noise beresonansi naik lalu turun, halus. */
+                    whooshOut() {
+                        noise({ a: 0.55, d: 0.9, vol: 0.16, type: 'bandpass', f: 250, fMid: 2400, fTo: 350, q: 2.5, wet: 0.5 });
+                        noise({ a: 0.5, d: 0.9, vol: 0.06, type: 'highpass', f: 1500, fTo: 6000, wet: 0.5 });
+                        tone(180, { type: 'sine', a: 0.4, d: 0.9, vol: 0.05, slideTo: 90, wet: 0.6 });
                     },
-                    key() { // ketikan
-                        noise({ a: 0.001, d: 0.03, vol: 0.09, type: 'highpass', f: 2500 + Math.random() * 1500 });
-                        tone(1800 + Math.random() * 800, { type: 'square', a: 0.001, d: 0.015, vol: 0.02 });
+
+                    /* KETIKAN: keyboard mekanik — thock bodi + klik tipis, variasi acak */
+                    key() {
+                        const v = rnd(0.7, 1.15);
+                        // klik atas (switch)
+                        noise({ a: 0.001, d: 0.012, vol: 0.10 * v, type: 'bandpass', f: rnd(2600, 4200), q: 3 });
+                        // thock bodi (bottom-out)
+                        noise({ a: 0.001, d: 0.045, vol: 0.13 * v, type: 'lowpass', f: rnd(500, 800) });
+                        tone(rnd(150, 210), { type: 'sine', a: 0.001, d: 0.05, vol: 0.07 * v, slideTo: 80 });
                     },
-                    dive() { // menyelam masuk ke device
-                        noise({ a: 1.6, d: 1.6, vol: 0.32, type: 'lowpass', f: 200, fTo: 9000, q: 0.7 });
-                        tone(60, { type: 'sawtooth', a: 1.5, d: 1.8, vol: 0.12, slideTo: 900 });
-                        tone(120, { type: 'sine', a: 1.5, d: 1.8, vol: 0.08, slideTo: 1800 });
+                    // Bunyi "enter" saat baris kosong / akhir blok
+                    keyEnter() {
+                        noise({ a: 0.001, d: 0.02, vol: 0.10, type: 'bandpass', f: 2200, q: 2 });
+                        noise({ a: 0.001, d: 0.07, vol: 0.17, type: 'lowpass', f: 450 });
+                        tone(120, { type: 'sine', a: 0.001, d: 0.08, vol: 0.10, slideTo: 60 });
                     },
-                    impact() { // kilatan
-                        tone(140, { type: 'sine', a: 0.005, d: 0.9, vol: 0.4, slideTo: 40 });
-                        noise({ a: 0.005, d: 0.6, vol: 0.18, type: 'lowpass', f: 1200, fTo: 100 });
-                        tone(1760, { type: 'sine', a: 0.01, d: 1.6, vol: 0.06 });
-                        tone(2637, { type: 'sine', a: 0.01, d: 1.6, vol: 0.04 });
+
+                    /* DIVE: riser masuk ke device — noise membuka, nada naik, denyut yang makin cepat */
+                    dive() {
+                        if (!ctx) return;
+                        const st = now(), len = 3.0;
+                        noise({ a: 2.2, d: 1.0, vol: 0.28, type: 'lowpass', f: 150, fTo: 12000, q: 1.2, wet: 0.4 });
+                        noise({ a: 2.4, d: 0.8, vol: 0.10, type: 'bandpass', f: 300, fTo: 5000, q: 4, wet: 0.5 });
+                        tone(55, { type: 'sawtooth', a: 2.3, d: 0.9, vol: 0.10, slideTo: 1100, lp: 2500, wet: 0.4 });
+                        tone(55, { type: 'sawtooth', a: 2.3, d: 0.9, vol: 0.08, slideTo: 1100, lp: 2500, detune: 12, wet: 0.4 });
+                        tone(110, { type: 'sine', a: 2.3, d: 0.9, vol: 0.07, slideTo: 2200, wet: 0.5 });
+                        // Denyut (pulse) yang mempercepat: seperti mendekati "gerbang"
+                        let t = 0, gap = 0.34;
+                        while (t < len - 0.3) {
+                            tone(70 + t * 25, { type: 'sine', a: 0.005, d: 0.16, vol: 0.12, slideTo: 40, t });
+                            noise({ a: 0.002, d: 0.03, vol: 0.05, type: 'highpass', f: 5000, t });
+                            t += gap; gap = Math.max(0.05, gap * 0.86);
+                        }
+                    },
+
+                    /* IMPACT: hantaman sinematik + ekor reverb + chime */
+                    impact() {
+                        tone(150, { type: 'sine', a: 0.004, d: 1.2, vol: 0.45, slideTo: 30, wet: 0.6 });
+                        tone(75, { type: 'triangle', a: 0.004, d: 0.6, vol: 0.20, slideTo: 25 });
+                        noise({ a: 0.003, d: 0.9, vol: 0.20, type: 'lowpass', f: 3000, fTo: 80, wet: 0.7 });
+                        noise({ a: 0.003, d: 0.25, vol: 0.10, type: 'highpass', f: 2000, wet: 0.8 });
+                        tone(1318, { type: 'sine', a: 0.02, d: 2.2, vol: 0.05, wet: 0.9, t: 0.05 });
+                        tone(1976, { type: 'sine', a: 0.02, d: 2.2, vol: 0.035, wet: 0.9, t: 0.08 });
+                        tone(2637, { type: 'sine', a: 0.02, d: 2.0, vol: 0.025, wet: 0.9, t: 0.11 });
                     }
                 };
             })();
@@ -783,7 +869,7 @@
                     line.appendChild(body);
                     codeEl.insertBefore(line, cursor);
                     lineIndex++;
-                    if (content.trim() !== '') SFX.key();
+                    if (content.trim() !== '') SFX.key(); else SFX.keyEnter();
 
                     const lineHeight = parseFloat(getComputedStyle(codeEl).lineHeight) || 20;
                     const offset = Math.max(0, lineIndex - 8) * lineHeight;
